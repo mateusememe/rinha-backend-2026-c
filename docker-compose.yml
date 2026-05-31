@@ -1,0 +1,61 @@
+version: '3.8'
+services:
+  loader:
+    image: mateusememe/rinha2026-api:latest
+    command: ["/bin/bash", "/app/start.sh", "loader"]
+    volumes:
+      - data:/app/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.4'
+          memory: 200M
+
+  api1:
+    image: mateusememe/rinha2026-api:latest
+    command: ["/bin/bash", "/app/start.sh"]
+    environment:
+      - PORT=9001
+    volumes:
+      - data:/app/data
+    depends_on:
+      loader:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: '0.4'
+          memory: 120M
+
+  api2:
+    image: mateusememe/rinha2026-api:latest
+    command: ["/bin/bash", "/app/start.sh"]
+    environment:
+      - PORT=9002
+    volumes:
+      - data:/app/data
+    depends_on:
+      loader:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: '0.4'
+          memory: 120M
+
+  lb:
+    image: mateusememe/rinha2026-api:latest # O binário lb está na mesma imagem
+    command: ["/usr/local/bin/lb", "9999", "api1:9001", "api2:9002"]
+    ports:
+      - "9999:9999"
+    depends_on:
+      - api1
+      - api2
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 32M
+
+volumes:
+  data:
