@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   loader:
-    image: mateusememe/rinha2026-api:latest
+    build: .
     command: ["/bin/bash", "/app/start.sh", "loader"]
     volumes:
       - data:/app/data
@@ -10,8 +10,9 @@ services:
         limits:
           cpus: '0.2'
           memory: 100M
+
   api1:
-    image: mateusememe/rinha2026-api:latest
+    build: .
     command: ["/bin/bash", "/app/start.sh"]
     environment:
       - PORT=9001
@@ -25,8 +26,9 @@ services:
         limits:
           cpus: '0.35'
           memory: 100M
+
   api2:
-    image: mateusememe/rinha2026-api:latest
+    build: .
     command: ["/bin/bash", "/app/start.sh"]
     environment:
       - PORT=9002
@@ -40,8 +42,9 @@ services:
         limits:
           cpus: '0.35'
           memory: 100M
+
   lb:
-    image: mateusememe/rinha2026-api:latest
+    build: .
     command: ["/usr/local/bin/lb", "9999", "api1:9001", "api2:9002"]
     ports:
       - "9999:9999"
@@ -53,5 +56,6 @@ services:
         limits:
           cpus: '0.1'
           memory: 30M
+
 volumes:
   data:
