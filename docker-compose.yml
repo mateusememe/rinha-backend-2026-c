@@ -11,7 +11,7 @@ services:
       resources:
         limits:
           cpus: '0.3'
-          memory: 150M
+          memory: 160M
 
   api1:
     image: mateusememe/rinha2026-c:latest
@@ -27,7 +27,7 @@ services:
       resources:
         limits:
           cpus: '0.3'
-          memory: 90M
+          memory: 85M
 
   api2:
     image: mateusememe/rinha2026-c:latest
@@ -43,7 +43,7 @@ services:
       resources:
         limits:
           cpus: '0.3'
-          memory: 90M
+          memory: 85M
 
   lb:
     image: mateusememe/rinha2026-c:latest
