@@ -1,10 +1,11 @@
 version: '3.8'
 services:
   loader:
-    build: .
+    image: mateusememe/rinha2026-api:latest
     command: ["/bin/bash", "/app/start.sh", "loader"]
     volumes:
       - data:/app/data
+      - .:/dataset:ro # Mapeia a raiz do repo da rinha onde estão os arquivos .gz
     deploy:
       resources:
         limits:
@@ -12,7 +13,7 @@ services:
           memory: 100M
 
   api1:
-    build: .
+    image: mateusememe/rinha2026-api:latest
     command: ["/bin/bash", "/app/start.sh"]
     environment:
       - PORT=9001
@@ -28,7 +29,7 @@ services:
           memory: 100M
 
   api2:
-    build: .
+    image: mateusememe/rinha2026-api:latest
     command: ["/bin/bash", "/app/start.sh"]
     environment:
       - PORT=9002
@@ -44,7 +45,7 @@ services:
           memory: 100M
 
   lb:
-    build: .
+    image: mateusememe/rinha2026-api:latest
     command: ["/usr/local/bin/lb", "9999", "api1:9001", "api2:9002"]
     ports:
       - "9999:9999"
