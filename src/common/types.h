@@ -14,11 +14,12 @@
 
 typedef int16_t rinha_vec_t[PACKED_DIM];
 
+#pragma pack(push, 1)
 typedef struct {
-    rinha_vec_t dims; // 32 bytes
+    rinha_vec_t dims; // 32 bytes (16 * 2) - Alinhado para Neon/AVX
     uint8_t is_fraud; // 1 byte
-    uint8_t _pad[31]; // Pad to 64 bytes for cache line alignment
 } ref_record_t;
+#pragma pack(pop)
 
 typedef struct {
     uint32_t start_idx;
@@ -30,7 +31,6 @@ typedef struct {
     uint32_t count;
     bucket_t buckets[NUM_BUCKETS];
     uint16_t neighbor_orders[NUM_BUCKETS * BUCKET_SEARCH_LIMIT];
-    uint8_t _header_pad[52]; // Padding to align records to 64-byte boundary
     ref_record_t records[MAX_REFS];
 } ref_store_t;
 

@@ -11,6 +11,8 @@
 #include "common/shm.h"
 #include "fraud/vectorize.h"
 
+#define READ_BUF_SIZE (256 * 1024)
+
 static void build_neighbor_orders(ref_store_t *store) {
     uint8_t *seen = malloc(NUM_BUCKETS);
     for (int bucket_key = 0; bucket_key < NUM_BUCKETS; bucket_key++) {
@@ -45,20 +47,19 @@ static void build_neighbor_orders(ref_store_t *store) {
 }
 
 static bool parse_ref_item(const char *v, rinha_vec_t out, bool *is_fraud) {
-    v = strstr(v, "\"vector\":[");
-    if (!v) return false;
-    v += 10;
+    const char *v_start = strstr(v, "\"vector\":[");
+    if (!v_start) return false;
+    v_start += 10;
+    const char *p = v_start;
     for (int i = 0; i < 14; i++) {
         char *end;
-        double val = strtod(v, &end);
+        double val = strtod(p, &end);
         out[i] = (int16_t)round(val * SCALE_FACTOR);
-        v = end;
-        if (*v == ',') v++;
+        p = end;
+        if (*p == ',') p++;
     }
     out[14] = 0; out[15] = 0;
     *is_fraud = (strstr(v, "\"label\":\"fraud\"") != NULL);
-    // Note: this strstr might look ahead too far if not careful, 
-    // but reference format has label after vector.
     return true;
 }
 
@@ -72,57 +73,68 @@ int main() {
     FILE *f = fopen("resources/references.json", "r");
     if (!f) { perror("fopen references"); return 1; }
 
-    char *line = NULL;
-    size_t len = 0;
+    char *buf = malloc(READ_BUF_SIZE);
     uint32_t count = 0;
     uint32_t *bucket_counts = calloc(NUM_BUCKETS, sizeof(uint32_t));
     
-    printf("Loading references...\n");
-    if (getline(&line, &len, f) > 0) {
-        const char *p = line;
-        while ((p = strstr(p, "{\"vector\":[")) && count < MAX_REFS) {
+    printf("Loading references (streaming)...\n");
+    
+    size_t leftover = 0;
+    while (1) {
+        size_t n = fread(buf + leftover, 1, READ_BUF_SIZE - leftover - 1, f);
+        if (n == 0 && leftover == 0) break;
+        size_t total = n + leftover;
+        buf[total] = '\0';
+
+        char *curr = buf;
+        while (count < MAX_REFS) {
+            char *obj_start = strstr(curr, "{\"vector\":[");
+            if (!obj_start) break;
+            
+            char *obj_end = strchr(obj_start, '}');
+            if (!obj_end) break; // Incomplete object in buffer
+
+            *obj_end = '\0';
             bool is_fraud;
-            if (parse_ref_item(p, store->records[count].dims, &is_fraud)) {
+            if (parse_ref_item(obj_start, store->records[count].dims, &is_fraud)) {
                 store->records[count].is_fraud = (uint8_t)is_fraud;
                 int key = get_bucket_key(store->records[count].dims);
                 bucket_counts[key]++;
                 count++;
                 if (count % 100000 == 0) printf("Loaded %u...\n", count);
             }
-            p += 10; // Skip the match start
+            curr = obj_end + 1;
         }
+
+        leftover = total - (curr - buf);
+        if (leftover > 0) memmove(buf, curr, leftover);
+        if (n == 0) break; // EOF
     }
     store->count = count;
     fclose(f);
+    free(buf);
 
     printf("Sorting %u records into buckets...\n", count);
     ref_record_t *sorted = malloc(sizeof(ref_record_t) * count);
+    if (!sorted) { fprintf(stderr, "Failed to allocate sorting buffer\n"); return 1; }
+    
     uint32_t current_pos = 0;
     for (int i = 0; i < NUM_BUCKETS; i++) {
         store->buckets[i].start_idx = current_pos;
-        store->buckets[i].count = 0;
         current_pos += bucket_counts[i];
+        store->buckets[i].count = 0; // reset to use as offset
     }
 
-    uint32_t *bucket_offsets = calloc(NUM_BUCKETS, sizeof(uint32_t));
     for (uint32_t i = 0; i < count; i++) {
         int key = get_bucket_key(store->records[i].dims);
-        uint32_t pos = store->buckets[key].start_idx + bucket_offsets[key];
+        uint32_t pos = store->buckets[key].start_idx + store->buckets[key].count;
         sorted[pos] = store->records[i];
-        bucket_offsets[key]++;
         store->buckets[key].count++;
     }
     
     memcpy(store->records, sorted, sizeof(ref_record_t) * count);
     free(sorted);
     free(bucket_counts);
-    free(bucket_offsets);
-
-    uint32_t max_count = 0;
-    for (int i = 0; i < NUM_BUCKETS; i++) {
-        if (store->buckets[i].count > max_count) max_count = store->buckets[i].count;
-    }
-    printf("Max bucket size: %u\n", max_count);
 
     printf("Building neighbor orders...\n");
     build_neighbor_orders(store);

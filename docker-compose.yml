@@ -10,8 +10,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.2'
-          memory: 100M
+          cpus: '0.3'
+          memory: 150M
 
   api1:
     build: .
@@ -26,8 +26,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.35'
-          memory: 100M
+          cpus: '0.3'
+          memory: 90M
 
   api2:
     build: .
@@ -42,8 +42,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.35'
-          memory: 100M
+          cpus: '0.3'
+          memory: 90M
 
   lb:
     build: .
@@ -57,7 +57,7 @@ services:
       resources:
         limits:
           cpus: '0.1'
-          memory: 30M
+          memory: 20M
 
 volumes:
   data:
