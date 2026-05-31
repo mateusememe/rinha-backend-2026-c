@@ -1,16 +1,18 @@
-version: "3.8"
+version: '3.8'
 services:
   loader:
     build: .
     command: ["/bin/bash", "/app/start.sh", "loader"]
     volumes:
       - data:/app/data
-      - .:/dataset:ro
+      - ../:/dataset_up:ro
+      - .:/dataset_here:ro
     deploy:
       resources:
         limits:
-          cpus: "0.2"
+          cpus: '0.2'
           memory: 100M
+
   api1:
     build: .
     command: ["/bin/bash", "/app/start.sh"]
@@ -24,8 +26,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.35"
+          cpus: '0.35'
           memory: 100M
+
   api2:
     build: .
     command: ["/bin/bash", "/app/start.sh"]
@@ -39,8 +42,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.35"
+          cpus: '0.35'
           memory: 100M
+
   lb:
     build: .
     command: ["/usr/local/bin/lb", "9999", "api1:9001", "api2:9002"]
@@ -52,7 +56,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.1"
+          cpus: '0.1'
           memory: 30M
+
 volumes:
   data:
