@@ -2,17 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <math.h>
-#include <errno.h>
 #include "common/types.h"
 #include "common/shm.h"
 #include "fraud/vectorize.h"
-
-#define READ_BUF_SIZE (512 * 1024)
 
 static void build_neighbor_orders(ref_store_t *store) {
     uint8_t *seen = malloc(NUM_BUCKETS);
@@ -23,7 +16,6 @@ static void build_neighbor_orders(ref_store_t *store) {
         int km_home = (bucket_key >> 6) & 7;
         int hour = (bucket_key >> 9) & 3;
         int no_last = (bucket_key >> 11) & 1;
-        
         int count = 0;
         for (int radius = 0; radius < 8 && count < BUCKET_SEARCH_LIMIT; radius++) {
             for (int a = (amount - radius < 0 ? 0 : amount - radius); a <= (amount + radius > 7 ? 7 : amount + radius) && count < BUCKET_SEARCH_LIMIT; a++) {
@@ -47,112 +39,59 @@ static void build_neighbor_orders(ref_store_t *store) {
     free(seen);
 }
 
-static bool parse_ref_item(const char *v, rinha_vec_t out, bool *is_fraud) {
-    const char *v_start = strstr(v, "\"vector\":[");
-    if (!v_start) return false;
-    v_start += 10;
-    const char *p = v_start;
-    for (int i = 0; i < 14; i++) {
-        char *end;
-        double val = strtod(p, &end);
-        out[i] = (int16_t)round(val * SCALE_FACTOR);
-        p = end;
-        if (*p == ',') p++;
-    }
-    out[14] = 0; out[15] = 0;
-    *is_fraud = (strstr(v, "\"label\":\"fraud\"") != NULL);
-    return true;
-}
-
 int main() {
-    printf("Starting data-loader (AMD64 built)...\n");
     ref_store_t *store = shm_create();
-    if (!store) {
-        fprintf(stderr, "FATAL: Failed to create SHM. Error: %s\n", strerror(errno));
-        return 1;
-    }
+    if (!store) return 1;
 
-    const char *data_path = "/app/resources/references.json";
-    FILE *f = fopen(data_path, "r");
-    if (!f) { 
-        fprintf(stderr, "FATAL: Could not open %s. Error: %s\n", data_path, strerror(errno)); 
-        return 1; 
-    }
+    FILE *f = fopen("resources/references.json", "r");
+    if (!f) return 1;
 
-    char *buf = malloc(READ_BUF_SIZE);
+    char *line = NULL;
+    size_t len = 0;
     uint32_t count = 0;
     uint32_t *bucket_counts = calloc(NUM_BUCKETS, sizeof(uint32_t));
-    
-    printf("Streaming dataset into memory...\n");
-    
-    size_t leftover = 0;
-    while (1) {
-        size_t n = fread(buf + leftover, 1, READ_BUF_SIZE - leftover - 1, f);
-        if (n == 0 && leftover == 0) break;
-        size_t total = n + leftover;
-        buf[total] = '\0';
 
-        char *curr = buf;
-        while (count < MAX_REFS) {
-            char *obj_start = strstr(curr, "{\"vector\":[");
-            if (!obj_start) break;
-            
-            char *obj_end = strchr(obj_start, '}');
-            if (!obj_end) break;
-
-            *obj_end = '\0';
-            bool is_fraud;
-            if (parse_ref_item(obj_start, store->records[count].dims, &is_fraud)) {
-                store->records[count].is_fraud = (uint8_t)is_fraud;
-                int key = get_bucket_key(store->records[count].dims);
-                bucket_counts[key]++;
-                count++;
-                if (count % 250000 == 0) printf("Loaded %u records...\n", count);
-            }
-            curr = obj_end + 1;
+    while (getline(&line, &len, f) != -1 && count < MAX_REFS) {
+        char *v_start = strstr(line, "\"vector\":[");
+        if (!v_start) continue;
+        v_start += 10;
+        char *p = v_start;
+        for (int i = 0; i < 14; i++) {
+            char *end;
+            store->records[count].dims[i] = (int16_t)round(strtod(p, &end) * SCALE_FACTOR);
+            p = end; if (*p == ',') p++;
         }
-        leftover = total - (curr - buf);
-        if (leftover > 0) memmove(buf, curr, leftover);
-        if (n == 0) break;
+        store->records[count].dims[14] = 0;
+        store->records[count].dims[15] = 0;
+        store->records[count].is_fraud = (strstr(line, "\"label\":\"fraud\"") != NULL);
+        
+        int key = get_bucket_key(store->records[count].dims);
+        bucket_counts[key]++;
+        count++;
     }
     store->count = count;
+    free(line);
     fclose(f);
-    free(buf);
 
-    if (count == 0) {
-        fprintf(stderr, "FATAL: No records loaded from dataset!\n");
-        return 1;
-    }
-
-    printf("Sorting %u records into buckets...\n", count);
-    ref_record_t *sorted = malloc(sizeof(ref_record_t) * MAX_REFS);
-    if (!sorted) { 
-        fprintf(stderr, "FATAL: OOM allocating sorting buffer (%zu bytes)\n", sizeof(ref_record_t) * MAX_REFS); 
-        return 1; 
-    }
-    
+    ref_record_t *sorted = malloc(sizeof(ref_record_t) * count);
     uint32_t current_pos = 0;
     for (int i = 0; i < NUM_BUCKETS; i++) {
         store->buckets[i].start_idx = current_pos;
         current_pos += bucket_counts[i];
         store->buckets[i].count = 0;
     }
-
     for (uint32_t i = 0; i < count; i++) {
         int key = get_bucket_key(store->records[i].dims);
         uint32_t pos = store->buckets[key].start_idx + store->buckets[key].count;
         sorted[pos] = store->records[i];
         store->buckets[key].count++;
     }
-    
     memcpy(store->records, sorted, sizeof(ref_record_t) * count);
     free(sorted);
     free(bucket_counts);
 
-    printf("Finalizing build...\n");
     build_neighbor_orders(store);
-
     store->magic = SHM_MAGIC;
-    printf("Success! %u records ready in SHM.\n", store->count);
+    printf("Loaded %u records\n", store->count);
     return 0;
 }

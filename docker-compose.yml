@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   loader:
     image: mateusememe/rinha2026-c:latest
@@ -12,7 +11,7 @@ services:
       resources:
         limits:
           cpus: '0.3'
-          memory: 160M
+          memory: 200M
 
   api1:
     image: mateusememe/rinha2026-c:latest
@@ -29,7 +28,7 @@ services:
       resources:
         limits:
           cpus: '0.3'
-          memory: 85M
+          memory: 65M
 
   api2:
     image: mateusememe/rinha2026-c:latest
@@ -46,7 +45,7 @@ services:
       resources:
         limits:
           cpus: '0.3'
-          memory: 85M
+          memory: 65M
 
   lb:
     image: mateusememe/rinha2026-c:latest
