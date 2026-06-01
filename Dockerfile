@@ -2,7 +2,7 @@ FROM debian:12 AS builder
 RUN apt-get update && apt-get install -y gcc make zlib1g-dev
 COPY . /app
 WORKDIR /app
-RUN make all
+RUN make clean && make all
 
 FROM debian:12-slim
 # gzip é essencial para o zcat no start.sh

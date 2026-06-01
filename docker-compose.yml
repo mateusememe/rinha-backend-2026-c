@@ -5,8 +5,6 @@ services:
     command: ["/bin/bash", "/app/start.sh", "loader"]
     volumes:
       - data:/app/data
-      - ../:/dataset_up:ro
-      - .:/dataset_here:ro
     deploy:
       resources:
         limits:
@@ -24,6 +22,12 @@ services:
     depends_on:
       loader:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9001/ready"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+      start_period: 2s
     deploy:
       resources:
         limits:
@@ -41,6 +45,12 @@ services:
     depends_on:
       loader:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9002/ready"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+      start_period: 2s
     deploy:
       resources:
         limits:
@@ -54,8 +64,10 @@ services:
     ports:
       - "9999:9999"
     depends_on:
-      - api1
-      - api2
+      api1:
+        condition: service_healthy
+      api2:
+        condition: service_healthy
     deploy:
       resources:
         limits:
