@@ -18,12 +18,12 @@
 ref_store_t *shm_create(void) {
     size_t size = sizeof(ref_store_t);
     
-    // O diretório /app/data já deve existir pelo volume do Docker
+    // Forçar a criação da pasta se ela não existir
+    mkdir("/app/data", 0777);
+    
     int fd = open(DATASET_FILE, O_CREAT | O_RDWR | O_TRUNC, 0666);
     if (fd == -1) {
-        // Fallback para pasta atual se /app/data falhar
-        fd = open("rinha_refstore_v5.bin", O_CREAT | O_RDWR | O_TRUNC, 0666);
-        if (fd == -1) return NULL;
+        return NULL;
     }
     
     if (ftruncate(fd, size) == -1) {
@@ -43,10 +43,7 @@ ref_store_t *shm_create(void) {
 ref_store_t *shm_attach(void) {
     size_t size = sizeof(ref_store_t);
     int fd = open(DATASET_FILE, O_RDONLY, 0);
-    if (fd == -1) {
-        fd = open("rinha_refstore_v5.bin", O_RDONLY, 0);
-        if (fd == -1) return NULL;
-    }
+    if (fd == -1) return NULL;
     
     ref_store_t *ptr = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
     close(fd);

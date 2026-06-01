@@ -14,12 +14,11 @@
 
 typedef int16_t rinha_vec_t[PACKED_DIM];
 
-// 48 bytes garante alinhamento de 16 bytes e 
-// boa performance em cache lines de 64 bytes.
+// 64 bytes: Alinhamento perfeito para cache lines de CPUs modernas
 typedef struct {
-    rinha_vec_t dims;   // 32 bytes
-    uint8_t is_fraud;   // 1 byte
-    uint8_t padding[15]; // 15 bytes para fechar 48
+    rinha_vec_t dims;    // 32 bytes
+    uint8_t is_fraud;    // 1 byte
+    uint8_t padding[31]; // 31 bytes para fechar 64
 } ref_record_t;
 
 typedef struct {

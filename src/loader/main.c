@@ -7,11 +7,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <math.h>
+#include <errno.h>
 #include "common/types.h"
 #include "common/shm.h"
 #include "fraud/vectorize.h"
 
-#define READ_BUF_SIZE (256 * 1024)
+#define READ_BUF_SIZE (512 * 1024)
 
 static void build_neighbor_orders(ref_store_t *store) {
     uint8_t *seen = malloc(NUM_BUCKETS);
@@ -64,20 +65,25 @@ static bool parse_ref_item(const char *v, rinha_vec_t out, bool *is_fraud) {
 }
 
 int main() {
+    printf("Starting data-loader (AMD64 built)...\n");
     ref_store_t *store = shm_create();
     if (!store) {
-        fprintf(stderr, "Failed to create SHM\n");
+        fprintf(stderr, "FATAL: Failed to create SHM. Error: %s\n", strerror(errno));
         return 1;
     }
 
-    FILE *f = fopen("resources/references.json", "r");
-    if (!f) { perror("fopen references"); return 1; }
+    const char *data_path = "/app/resources/references.json";
+    FILE *f = fopen(data_path, "r");
+    if (!f) { 
+        fprintf(stderr, "FATAL: Could not open %s. Error: %s\n", data_path, strerror(errno)); 
+        return 1; 
+    }
 
     char *buf = malloc(READ_BUF_SIZE);
     uint32_t count = 0;
     uint32_t *bucket_counts = calloc(NUM_BUCKETS, sizeof(uint32_t));
     
-    printf("Loading references (streaming)...\n");
+    printf("Streaming dataset into memory...\n");
     
     size_t leftover = 0;
     while (1) {
@@ -92,7 +98,7 @@ int main() {
             if (!obj_start) break;
             
             char *obj_end = strchr(obj_start, '}');
-            if (!obj_end) break; // Incomplete object in buffer
+            if (!obj_end) break;
 
             *obj_end = '\0';
             bool is_fraud;
@@ -101,28 +107,35 @@ int main() {
                 int key = get_bucket_key(store->records[count].dims);
                 bucket_counts[key]++;
                 count++;
-                if (count % 100000 == 0) printf("Loaded %u...\n", count);
+                if (count % 250000 == 0) printf("Loaded %u records...\n", count);
             }
             curr = obj_end + 1;
         }
-
         leftover = total - (curr - buf);
         if (leftover > 0) memmove(buf, curr, leftover);
-        if (n == 0) break; // EOF
+        if (n == 0) break;
     }
     store->count = count;
     fclose(f);
     free(buf);
 
+    if (count == 0) {
+        fprintf(stderr, "FATAL: No records loaded from dataset!\n");
+        return 1;
+    }
+
     printf("Sorting %u records into buckets...\n", count);
-    ref_record_t *sorted = malloc(sizeof(ref_record_t) * count);
-    if (!sorted) { fprintf(stderr, "Failed to allocate sorting buffer\n"); return 1; }
+    ref_record_t *sorted = malloc(sizeof(ref_record_t) * MAX_REFS);
+    if (!sorted) { 
+        fprintf(stderr, "FATAL: OOM allocating sorting buffer (%zu bytes)\n", sizeof(ref_record_t) * MAX_REFS); 
+        return 1; 
+    }
     
     uint32_t current_pos = 0;
     for (int i = 0; i < NUM_BUCKETS; i++) {
         store->buckets[i].start_idx = current_pos;
         current_pos += bucket_counts[i];
-        store->buckets[i].count = 0; // reset to use as offset
+        store->buckets[i].count = 0;
     }
 
     for (uint32_t i = 0; i < count; i++) {
@@ -136,10 +149,10 @@ int main() {
     free(sorted);
     free(bucket_counts);
 
-    printf("Building neighbor orders...\n");
+    printf("Finalizing build...\n");
     build_neighbor_orders(store);
 
     store->magic = SHM_MAGIC;
-    printf("Done. Total records: %u, Magic: %llx\n", store->count, (unsigned long long)store->magic);
+    printf("Success! %u records ready in SHM.\n", store->count);
     return 0;
 }
