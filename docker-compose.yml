@@ -2,6 +2,7 @@ version: '3.8'
 services:
   loader:
     image: mateusememe/rinha2026-c:latest
+    platform: linux/amd64
     command: ["/bin/bash", "/app/start.sh", "loader"]
     volumes:
       - data:/app/data
@@ -15,6 +16,7 @@ services:
 
   api1:
     image: mateusememe/rinha2026-c:latest
+    platform: linux/amd64
     command: ["/bin/bash", "/app/start.sh"]
     environment:
       - PORT=9001
@@ -31,6 +33,7 @@ services:
 
   api2:
     image: mateusememe/rinha2026-c:latest
+    platform: linux/amd64
     command: ["/bin/bash", "/app/start.sh"]
     environment:
       - PORT=9002
@@ -47,6 +50,7 @@ services:
 
   lb:
     image: mateusememe/rinha2026-c:latest
+    platform: linux/amd64
     command: ["/usr/local/bin/lb", "9999", "api1:9001", "api2:9002"]
     ports:
       - "9999:9999"
