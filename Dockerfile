@@ -7,8 +7,10 @@ RUN make all
 FROM debian:12-slim
 RUN apt-get update && apt-get install -y zlib1g curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
+# Criar pastas necessárias e garantir permissões
+RUN mkdir -p /app/resources /app/data && chmod 777 /app/data
 COPY --from=builder /app/bin/* /usr/local/bin/
 COPY --from=builder /app/resources /app/resources
 COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
-EXPOSE 9999
+ENTRYPOINT ["/app/start.sh"]
