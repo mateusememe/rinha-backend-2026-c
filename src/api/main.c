@@ -55,8 +55,13 @@ int main(int argc, char **argv) {
     struct sockaddr_in addr = { .sin_family = AF_INET, .sin_addr.s_addr = INADDR_ANY, .sin_port = htons(port) };
     bind(sfd, (struct sockaddr *)&addr, sizeof(addr));
     listen(sfd, 8192);
-    pthread_t threads[8];
-    for (int i = 0; i < 8; i++) pthread_create(&threads[i], NULL, worker_func, (void *)(intptr_t)sfd);
-    for (int i = 0; i < 8; i++) pthread_join(threads[i], NULL);
+    int num_threads = 100;
+    pthread_t threads[100];
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setstacksize(&attr, 65536); // 64KB stack
+    
+    for (int i = 0; i < num_threads; i++) pthread_create(&threads[i], &attr, worker_func, (void *)(intptr_t)sfd);
+    for (int i = 0; i < num_threads; i++) pthread_join(threads[i], NULL);
     return 0;
 }

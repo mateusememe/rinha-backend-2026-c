@@ -22,11 +22,14 @@ void handle_request(const http_request_t *req, char *resp_buf, size_t *resp_len,
     } else if (req->method == METHOD_POST && (strcmp(req->path, "/fraud-score") == 0 || strcmp(req->path, "/eval") == 0)) {
         tx_payload_t payload;
         if (parse_transaction_json(req->body, req->content_length, &payload)) {
+            int borderline = is_borderline(&payload);
+            int limit = borderline ? 128 : 10;
+            char json[1024];
+            
             rinha_vec_t qvec;
             vectorize_payload(&payload, qvec);
             knn_result_t res;
-            knn_search(store, qvec, &res);
-            char json[1024];
+            knn_search(store, qvec, limit, &res);
             serialize_knn_result(&res, json, sizeof(json));
             *resp_len = snprintf(resp_buf, 8192,
                 "HTTP/1.1 200 OK\r\n"

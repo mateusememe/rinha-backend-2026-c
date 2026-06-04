@@ -49,14 +49,16 @@ static inline int32_t dist_sq_simd_v(const int16_t *q, const int16_t *b) {
 #endif
 }
 
-void knn_search(const ref_store_t *store, const rinha_vec_t query, knn_result_t *result) {
+void knn_search(const ref_store_t *store, const rinha_vec_t query, int limit, knn_result_t *result) {
     int32_t best_dists[9] = {INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX};
     uint8_t best_labels[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
     
     int q_key = get_bucket_key(query);
     const uint16_t *order = &store->neighbor_orders[q_key * BUCKET_SEARCH_LIMIT];
     
-    for (int i = 0; i < BUCKET_SEARCH_LIMIT; i++) {
+    // unused variables removed
+    
+    for (int i = 0; i < limit; i++) {
         uint16_t b_idx = order[i];
         uint32_t start = store->buckets[b_idx].start_idx;
         uint32_t count = store->buckets[b_idx].count;

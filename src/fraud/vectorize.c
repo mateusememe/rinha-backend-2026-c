@@ -115,6 +115,25 @@ void vectorize_payload(const tx_payload_t *payload, rinha_vec_t out) {
     out[13] = quantize((double)payload->merchant_avg_amount_m / 10000000.0);
 }
 
+int is_borderline(const tx_payload_t *p) {
+    double ratio = (p->customer_avg_amount_m <= 0) ? 1.0 : ((double)p->amount_m / (double)p->customer_avg_amount_m);
+    bool obvious_legit = (p->amount_m <= 500000) &&
+                         (ratio <= 0.5) &&
+                         (p->installments <= 3) &&
+                         (p->customer_tx_count_24h <= 5) &&
+                         (p->terminal_km_from_home_m <= 50000);
+    if (obvious_legit) return 0;
+    
+    bool risky_mcc = (p->merchant_mcc == 7995 || p->merchant_mcc == 7801 || p->merchant_mcc == 7802);
+    bool obvious_fraud = (p->amount_m >= 5000000) &&
+                         (p->installments >= 5) &&
+                         (p->customer_tx_count_24h >= 6) &&
+                         (p->terminal_km_from_home_m >= 150000) &&
+                         risky_mcc;
+    if (obvious_fraud) return 0;
+    return 1;
+}
+
 int get_bucket_key(const rinha_vec_t vector) {
     int amount = (vector[0] <= 0) ? 0 : (vector[0] * 8 / (SCALE_FACTOR + 1));
     if (amount > 7) amount = 7;

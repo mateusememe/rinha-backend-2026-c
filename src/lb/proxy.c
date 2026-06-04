@@ -68,11 +68,17 @@ void start_lb(int port, upstream_pool_t *pool) {
     printf("LB started on port %d with %d upstreams...\n", port, pool->count);
     
     lb_args_t args = { .server_fd = server_fd, .pool = pool };
-    pthread_t threads[NUM_THREADS];
-    for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_create(&threads[i], NULL, lb_worker, &args);
+    int num_threads = 200; // Increased to handle 250 VUs
+    pthread_t threads[200];
+    
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setstacksize(&attr, 65536); // 64KB stack to save memory
+    
+    for (int i = 0; i < num_threads; i++) {
+        pthread_create(&threads[i], &attr, lb_worker, &args);
     }
-    for (int i = 0; i < NUM_THREADS; i++) {
+    for (int i = 0; i < num_threads; i++) {
         pthread_join(threads[i], NULL);
     }
 }
