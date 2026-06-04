@@ -1,6 +1,6 @@
 services:
   loader:
-    image: mateusememe/rinha2026-c:v11
+    image: mateusememe/rinha2026-c:v12
     platform: linux/amd64
     command: ["/bin/bash", "/app/start.sh", "loader"]
     volumes:
@@ -12,22 +12,17 @@ services:
           memory: 200M
 
   api1:
-    image: mateusememe/rinha2026-c:v11
+    image: mateusememe/rinha2026-c:v12
     platform: linux/amd64
     command: ["/bin/bash", "/app/start.sh"]
     environment:
-      - PORT=9001
+      - API_SOCKET=/sockets/api1.sock
     volumes:
       - data:/app/data
+      - sockets:/sockets
     depends_on:
       loader:
         condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9001/ready"]
-      interval: 3s
-      timeout: 2s
-      retries: 20
-      start_period: 2s
     deploy:
       resources:
         limits:
@@ -35,22 +30,17 @@ services:
           memory: 65M
 
   api2:
-    image: mateusememe/rinha2026-c:v11
+    image: mateusememe/rinha2026-c:v12
     platform: linux/amd64
     command: ["/bin/bash", "/app/start.sh"]
     environment:
-      - PORT=9002
+      - API_SOCKET=/sockets/api2.sock
     volumes:
       - data:/app/data
+      - sockets:/sockets
     depends_on:
       loader:
         condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9002/ready"]
-      interval: 3s
-      timeout: 2s
-      retries: 20
-      start_period: 2s
     deploy:
       resources:
         limits:
@@ -58,17 +48,19 @@ services:
           memory: 65M
 
   lb:
-    image: nginx:alpine
+    image: mateusememe/rinha2026-c:v12
     platform: linux/amd64
+    command: ["/bin/bash", "/app/start.sh", "lb"]
+    environment:
+      - API1_SOCKET=/sockets/api1.sock
+      - API2_SOCKET=/sockets/api2.sock
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - sockets:/sockets
     ports:
       - "9999:9999"
     depends_on:
-      api1:
-        condition: service_healthy
-      api2:
-        condition: service_healthy
+      - api1
+      - api2
     deploy:
       resources:
         limits:
@@ -77,3 +69,9 @@ services:
 
 volumes:
   data:
+  sockets:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=4m,uid=0,gid=0,mode=0777"

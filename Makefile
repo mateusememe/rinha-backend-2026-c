@@ -15,7 +15,7 @@ ifeq ($(ARCH),x86_64)
 	CFLAGS += -mavx2
 endif
 
-SRC_COMMON = src/common/shm.c src/common/utils.c
+SRC_COMMON = src/common/shm.c src/common/utils.c src/common/uds.c
 SRC_FRAUD = src/fraud/knn.c src/fraud/vectorize.c
 SRC_API = src/api/http.c src/api/json.c src/api/routes.c
 
@@ -25,7 +25,7 @@ bin/fraud-api: src/api/main.c $(SRC_API) $(SRC_COMMON) $(SRC_FRAUD)
 	@mkdir -p bin
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
-bin/lb: src/lb/main.c src/lb/proxy.c src/lb/upstream.c $(SRC_COMMON)
+bin/lb: src/lb/main.c $(SRC_COMMON)
 	@mkdir -p bin
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
