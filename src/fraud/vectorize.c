@@ -81,7 +81,7 @@ void vectorize_payload(const tx_payload_t *payload, rinha_vec_t out) {
     out[1] = quantize((double)payload->installments / 12.0);
     
     double ratio = (payload->customer_avg_amount_m <= 0) ? 1.0 : ((double)payload->amount_m / (double)payload->customer_avg_amount_m) / 10.0;
-    out[2] = quantize(ratio);
+    out[2] = quantize(ratio) * 2; // Weight x2
     
     out[3] = quantize((double)h / 23.0);
     out[4] = quantize((double)dow / 6.0);
@@ -94,14 +94,14 @@ void vectorize_payload(const tx_payload_t *payload, rinha_vec_t out) {
             : current;
         long long diff = current - last;
         if (diff < 0) diff = 0;
-        out[5] = quantize((double)diff / 1440.0);
-        out[6] = quantize((double)payload->last_tx_km_from_current_m / 1000000.0); // km / 1000.0
+        out[5] = quantize((double)diff / 1440.0) * 2; // Weight x2 for velocity
+        out[6] = quantize((double)payload->last_tx_km_from_current_m / 1000000.0) * 2; // km / 1000.0, Weight x2
     } else {
-        out[5] = -SCALE_FACTOR;
-        out[6] = -SCALE_FACTOR;
+        out[5] = -SCALE_FACTOR * 2;
+        out[6] = -SCALE_FACTOR * 2;
     }
 
-    out[7] = quantize((double)payload->terminal_km_from_home_m / 1000000.0);
+    out[7] = quantize((double)payload->terminal_km_from_home_m / 1000000.0) * 2; // Weight x2
     out[8] = quantize((double)payload->customer_tx_count_24h / 20.0);
     out[9] = payload->terminal_is_online ? SCALE_FACTOR : 0;
     out[10] = payload->terminal_card_present ? SCALE_FACTOR : 0;
@@ -110,8 +110,8 @@ void vectorize_payload(const tx_payload_t *payload, rinha_vec_t out) {
     for (int i = 0; i < payload->known_merchant_count; i++) {
         if (payload->known_merchant_hashes[i] == payload->merchant_id_hash) { known = true; break; }
     }
-    out[11] = known ? 0 : SCALE_FACTOR; // Inverted in reference
-    out[12] = quantize(get_mcc_risk(payload->merchant_mcc));
+    out[11] = known ? 0 : (SCALE_FACTOR * 2); // Inverted, Weight x2
+    out[12] = quantize(get_mcc_risk(payload->merchant_mcc)) * 2; // Weight x2
     out[13] = quantize((double)payload->merchant_avg_amount_m / 10000000.0);
 }
 

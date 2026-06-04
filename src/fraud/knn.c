@@ -50,8 +50,8 @@ static inline int32_t dist_sq_simd_v(const int16_t *q, const int16_t *b) {
 }
 
 void knn_search(const ref_store_t *store, const rinha_vec_t query, knn_result_t *result) {
-    int32_t best_dists[5] = {INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX};
-    uint8_t best_labels[5] = {0, 0, 0, 0, 0};
+    int32_t best_dists[9] = {INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX};
+    uint8_t best_labels[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
     
     int q_key = get_bucket_key(query);
     const uint16_t *order = &store->neighbor_orders[q_key * BUCKET_SEARCH_LIMIT];
@@ -75,8 +75,8 @@ void knn_search(const ref_store_t *store, const rinha_vec_t query, knn_result_t 
                 return;
             }
             
-            if (d2 < best_dists[4]) {
-                int pos = 4;
+            if (d2 < best_dists[8]) {
+                int pos = 8;
                 while (pos > 0 && d2 < best_dists[pos-1]) {
                     best_dists[pos] = best_dists[pos-1];
                     best_labels[pos] = best_labels[pos-1];
@@ -88,12 +88,12 @@ void knn_search(const ref_store_t *store, const rinha_vec_t query, knn_result_t 
             
             total_searched++;
             if ((total_searched & 1023) == 0) {
-                if (total_searched > 8000 && best_dists[4] != INT_MAX) goto finish;
+                if (total_searched > 12000 && best_dists[8] != INT_MAX) goto finish;
                 int frauds = 0;
-                for (int k = 0; k < 5; k++) if (best_labels[k]) frauds++;
-                if (best_dists[4] != INT_MAX && (frauds == 5 || frauds == 0)) {
-                    result->fraud_score = (float)frauds / 5.0f;
-                    result->approved = (result->fraud_score < 0.6f);
+                for (int k = 0; k < 9; k++) if (best_labels[k]) frauds++;
+                if (best_dists[8] != INT_MAX && (frauds == 9 || frauds == 0)) {
+                    result->fraud_score = (float)frauds / 9.0f;
+                    result->approved = (result->fraud_score <= 0.6f);
                     return;
                 }
             }
@@ -102,7 +102,8 @@ void knn_search(const ref_store_t *store, const rinha_vec_t query, knn_result_t 
 
 finish:;
     int frauds = 0;
-    for (int i = 0; i < 5; i++) if (best_labels[i]) frauds++;
-    result->fraud_score = (float)frauds / 5.0f;
-    result->approved = (result->fraud_score < 0.6f);
+    for (int i = 0; i < 9; i++) if (best_labels[i]) frauds++;
+    result->fraud_score = (float)frauds / 9.0f;
+    // Approve if frauds <= 5 (out of 9) -> threshold 0.6f. Deny if >= 6.
+    result->approved = (result->fraud_score <= 0.6f);
 }
