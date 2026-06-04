@@ -117,16 +117,31 @@ int main(int argc, char **argv) {
                         c->pos += r;
                         c->buf[c->pos] = '\0';
                         
-                        http_request_t req;
-                        if (parse_http_request(c->buf, c->pos, &req)) {
-                            char resp[BUF_SIZE];
-                            size_t resp_len;
-                            handle_request(&req, resp, &resp_len, g_store);
-                            write(cfd, resp, resp_len);
-                            close(cfd);
-                            c->pos = 0;
-                            break;
+                        int start = 0;
+                        while (start < c->pos) {
+                            http_request_t req;
+                            if (parse_http_request(c->buf + start, c->pos - start, &req)) {
+                                char resp[BUF_SIZE];
+                                size_t resp_len;
+                                handle_request(&req, resp, &resp_len, g_store);
+                                write(cfd, resp, resp_len);
+                                
+                                int consumed = (req.body - (c->buf + start)) + req.content_length;
+                                start += consumed;
+                            } else {
+                                break;
+                            }
                         }
+                        
+                        if (start > 0) {
+                            if (start == c->pos) {
+                                c->pos = 0;
+                            } else {
+                                memmove(c->buf, c->buf + start, c->pos - start);
+                                c->pos -= start;
+                            }
+                        }
+                        
                         if (c->pos >= BUF_SIZE - 1) {
                             close(cfd);
                             c->pos = 0;

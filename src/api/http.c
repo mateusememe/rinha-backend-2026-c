@@ -20,9 +20,23 @@ bool parse_http_request(const char *buf, size_t len, http_request_t *req) {
     req->path[path_len] = '\0';
 
     const char *body_start = strstr(buf, "\r\n\r\n");
-    if (body_start) {
-        req->body = body_start + 4;
-        req->content_length = len - (req->body - buf);
+    if (!body_start) return false;
+    
+    req->body = body_start + 4;
+    size_t received_body_len = len - (req->body - buf);
+    
+    const char *cl_hdr = strstr(buf, "Content-Length: ");
+    if (!cl_hdr) cl_hdr = strstr(buf, "content-length: ");
+    
+    int expected_len = 0;
+    if (cl_hdr) {
+        expected_len = atoi(cl_hdr + 16);
     }
+    
+    if (received_body_len < expected_len) {
+        return false; // Need more data
+    }
+    
+    req->content_length = expected_len;
     return true;
 }

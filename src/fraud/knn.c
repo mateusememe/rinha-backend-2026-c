@@ -82,16 +82,14 @@ void knn_search(const ref_store_t *store, const rinha_vec_t query, int limit, kn
         }
     }
 
-    // Distance-weighted voting: closer neighbors have much more influence
-    float fraud_weight = 0.0f;
-    float total_weight = 0.0f;
-    for (int i = 0; i < 9; i++) {
-        if (best_dists[i] == INT_MAX) continue;
-        float w = 1.0f / (1.0f + (float)best_dists[i]);
-        total_weight += w;
-        if (best_labels[i]) fraud_weight += w;
+    // Unweighted voting among top 5 nearest neighbors
+    int fraud_count = 0;
+    for (int i = 0; i < 5; i++) {
+        if (best_dists[i] != INT_MAX && best_labels[i]) {
+            fraud_count++;
+        }
     }
-    result->fraud_score = (total_weight > 0) ? fraud_weight / total_weight : 0.0f;
-    // FN costs 3x FP, so optimal threshold is around 0.5
-    result->approved = (result->fraud_score < 0.5f);
+    
+    result->fraud_score = (float)fraud_count / 5.0f;
+    result->approved = (fraud_count < 3); // Majority vote (3 or more fraud -> not approved)
 }
