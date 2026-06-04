@@ -7,10 +7,10 @@
 #define SCALE_FACTOR 10000
 #define PACKED_DIM 16
 #define MAX_REFS 1000000
-#define SHM_NAME "/rinha_refstore_v5"
+#define SHM_NAME "/rinha_refstore_v6"
 #define SHM_MAGIC 0x52494E4841323035ULL
 #define NUM_BUCKETS 4096
-#define BUCKET_SEARCH_LIMIT 32
+#define BUCKET_SEARCH_LIMIT 128
 
 typedef int16_t rinha_vec_t[PACKED_DIM];
 
