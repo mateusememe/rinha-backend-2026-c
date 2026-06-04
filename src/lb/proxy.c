@@ -35,25 +35,17 @@ static void *lb_worker(void *arg) {
         setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
         
         int idx = __atomic_fetch_add(&next_backend, 1, __ATOMIC_RELAXED) % pool->count;
+        upstream_t *backend = &pool->hosts[idx];
         
         int us_fd = socket(AF_INET, SOCK_STREAM, 0);
         setsockopt(us_fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
         
-        struct hostent *server = gethostbyname(pool->hosts[idx].host);
-        if (server) {
-            struct sockaddr_in us_addr;
-            memset(&us_addr, 0, sizeof(us_addr));
-            us_addr.sin_family = AF_INET;
-            memcpy(&us_addr.sin_addr.s_addr, server->h_addr, server->h_length);
-            us_addr.sin_port = htons(pool->hosts[idx].port);
-            
-            if (connect(us_fd, (struct sockaddr *)&us_addr, sizeof(us_addr)) == 0) {
-                ssize_t n = read(client_fd, buf, sizeof(buf));
-                if (n > 0) {
-                    write(us_fd, buf, n);
-                    n = read(us_fd, buf, sizeof(buf));
-                    if (n > 0) write(client_fd, buf, n);
-                }
+        if (connect(us_fd, (struct sockaddr *)&backend->addr, sizeof(struct sockaddr_in)) == 0) {
+            ssize_t n = read(client_fd, buf, sizeof(buf));
+            if (n > 0) {
+                write(us_fd, buf, n);
+                n = read(us_fd, buf, sizeof(buf));
+                if (n > 0) write(client_fd, buf, n);
             }
         }
         close(us_fd);
