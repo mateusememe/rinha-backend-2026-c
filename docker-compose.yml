@@ -1,6 +1,6 @@
 services:
   loader:
-    image: mateusememe/rinha2026-c:v6
+    image: mateusememe/rinha2026-c:v7
     platform: linux/amd64
     command: ["/bin/bash", "/app/start.sh", "loader"]
     volumes:
@@ -12,7 +12,7 @@ services:
           memory: 200M
 
   api1:
-    image: mateusememe/rinha2026-c:v6
+    image: mateusememe/rinha2026-c:v7
     platform: linux/amd64
     command: ["/bin/bash", "/app/start.sh"]
     environment:
@@ -35,7 +35,7 @@ services:
           memory: 65M
 
   api2:
-    image: mateusememe/rinha2026-c:v6
+    image: mateusememe/rinha2026-c:v7
     platform: linux/amd64
     command: ["/bin/bash", "/app/start.sh"]
     environment:
@@ -58,7 +58,7 @@ services:
           memory: 65M
 
   lb:
-    image: mateusememe/rinha2026-c:v6
+    image: mateusememe/rinha2026-c:v7
     platform: linux/amd64
     command: ["/usr/local/bin/lb", "9999", "api1:9001", "api2:9002"]
     ports:

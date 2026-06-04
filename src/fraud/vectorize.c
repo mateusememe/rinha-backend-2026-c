@@ -97,8 +97,8 @@ void vectorize_payload(const tx_payload_t *payload, rinha_vec_t out) {
         out[5] = quantize((double)diff / 1440.0) * 2; // Weight x2 for velocity
         out[6] = quantize((double)payload->last_tx_km_from_current_m / 1000000.0) * 2; // km / 1000.0, Weight x2
     } else {
-        out[5] = -SCALE_FACTOR * 2;
-        out[6] = -SCALE_FACTOR * 2;
+        out[5] = -SCALE_FACTOR;
+        out[6] = -SCALE_FACTOR;
     }
 
     out[7] = quantize((double)payload->terminal_km_from_home_m / 1000000.0) * 2; // Weight x2

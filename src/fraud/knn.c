@@ -56,8 +56,6 @@ void knn_search(const ref_store_t *store, const rinha_vec_t query, knn_result_t 
     int q_key = get_bucket_key(query);
     const uint16_t *order = &store->neighbor_orders[q_key * BUCKET_SEARCH_LIMIT];
     
-    uint32_t total_searched = 0;
-    
     for (int i = 0; i < BUCKET_SEARCH_LIMIT; i++) {
         uint16_t b_idx = order[i];
         uint32_t start = store->buckets[b_idx].start_idx;
@@ -69,12 +67,6 @@ void knn_search(const ref_store_t *store, const rinha_vec_t query, knn_result_t 
             
             int32_t d2 = dist_sq_simd_v(query, records[j].dims);
             
-            if (d2 == 0) {
-                result->fraud_score = records[j].is_fraud ? 1.0f : 0.0f;
-                result->approved = !records[j].is_fraud;
-                return;
-            }
-            
             if (d2 < best_dists[8]) {
                 int pos = 8;
                 while (pos > 0 && d2 < best_dists[pos-1]) {
@@ -85,25 +77,19 @@ void knn_search(const ref_store_t *store, const rinha_vec_t query, knn_result_t 
                 best_dists[pos] = d2;
                 best_labels[pos] = records[j].is_fraud;
             }
-            
-            total_searched++;
-            if ((total_searched & 1023) == 0) {
-                if (total_searched > 12000 && best_dists[8] != INT_MAX) goto finish;
-                int frauds = 0;
-                for (int k = 0; k < 9; k++) if (best_labels[k]) frauds++;
-                if (best_dists[8] != INT_MAX && (frauds == 9 || frauds == 0)) {
-                    result->fraud_score = (float)frauds / 9.0f;
-                    result->approved = (result->fraud_score <= 0.6f);
-                    return;
-                }
-            }
         }
     }
 
-finish:;
-    int frauds = 0;
-    for (int i = 0; i < 9; i++) if (best_labels[i]) frauds++;
-    result->fraud_score = (float)frauds / 9.0f;
-    // Approve if frauds <= 5 (out of 9) -> threshold 0.6f. Deny if >= 6.
-    result->approved = (result->fraud_score <= 0.6f);
+    // Distance-weighted voting: closer neighbors have much more influence
+    float fraud_weight = 0.0f;
+    float total_weight = 0.0f;
+    for (int i = 0; i < 9; i++) {
+        if (best_dists[i] == INT_MAX) continue;
+        float w = 1.0f / (1.0f + (float)best_dists[i]);
+        total_weight += w;
+        if (best_labels[i]) fraud_weight += w;
+    }
+    result->fraud_score = (total_weight > 0) ? fraud_weight / total_weight : 0.0f;
+    // FN costs 3x FP, so optimal threshold is around 0.5
+    result->approved = (result->fraud_score < 0.5f);
 }
