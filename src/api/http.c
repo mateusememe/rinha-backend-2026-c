@@ -25,18 +25,17 @@ bool parse_http_request(const char *buf, size_t len, http_request_t *req) {
     req->body = body_start + 4;
     size_t received_body_len = len - (req->body - buf);
     
-    const char *cl_hdr = NULL;
-    // Only search within the headers
+    // Robust Content-Length parsing
+    int expected_len = 0;
     char *hdr_end = (char *)body_start;
     char temp = *hdr_end;
     *hdr_end = '\0';
     
-    cl_hdr = strstr(buf, "Content-Length: ");
-    if (!cl_hdr) cl_hdr = strstr(buf, "content-length: ");
-    
-    int expected_len = 0;
+    const char *cl_hdr = strcasestr(buf, "content-length:");
     if (cl_hdr) {
-        expected_len = atoi(cl_hdr + 16);
+        cl_hdr += 15; // skip "content-length:"
+        while (*cl_hdr == ' ' || *cl_hdr == '\t') cl_hdr++; // skip spaces
+        expected_len = atoi(cl_hdr);
     }
     
     *hdr_end = temp;
