@@ -117,38 +117,23 @@ int main(int argc, char **argv) {
                         c->pos += r;
                         c->buf[c->pos] = '\0';
                         
-                        int start = 0;
-                        while (start < c->pos) {
-                            http_request_t req;
-                            if (parse_http_request(c->buf + start, c->pos - start, &req)) {
-                                char resp[BUF_SIZE];
-                                size_t resp_len;
-                                
-                                int consumed = (req.body - (c->buf + start)) + req.content_length;
-                                
-                                // Temporarily null-terminate the JSON body so strstr inside handle_request doesn't overrun
-                                char saved = c->buf[start + consumed];
-                                c->buf[start + consumed] = '\0';
-                                
-                                handle_request(&req, resp, &resp_len, g_store);
-                                
-                                c->buf[start + consumed] = saved;
-                                
-                                write(cfd, resp, resp_len);
-                                
-                                start += consumed;
-                            } else {
-                                break;
-                            }
-                        }
-                        
-                        if (start > 0) {
-                            if (start == c->pos) {
-                                c->pos = 0;
-                            } else {
-                                memmove(c->buf, c->buf + start, c->pos - start);
-                                c->pos -= start;
-                            }
+                        http_request_t req;
+                        if (parse_http_request(c->buf, c->pos, &req)) {
+                            char resp[BUF_SIZE];
+                            size_t resp_len;
+                            
+                            int consumed = (req.body - c->buf) + req.content_length;
+                            char saved = c->buf[consumed];
+                            c->buf[consumed] = '\0';
+                            
+                            handle_request(&req, resp, &resp_len, g_store);
+                            
+                            c->buf[consumed] = saved;
+                            
+                            write(cfd, resp, resp_len);
+                            close(cfd);
+                            c->pos = 0;
+                            break;
                         }
                         
                         if (c->pos >= BUF_SIZE - 1) {

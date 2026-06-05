@@ -13,11 +13,11 @@ void handle_request(const http_request_t *req, char *resp_buf, size_t *resp_len,
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Type: text/plain\r\n"
                 "Content-Length: 2\r\n"
-                "Connection: keep-alive\r\n"
+                "Connection: close\r\n"
                 "\r\n"
                 "OK");
         } else {
-            *resp_len = snprintf(resp_buf, 4096, "HTTP/1.1 503 Service Unavailable\r\nConnection: keep-alive\r\n\r\n");
+            *resp_len = snprintf(resp_buf, 4096, "HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
         }
     } else if (req->method == METHOD_POST && (strcmp(req->path, "/fraud-score") == 0 || strcmp(req->path, "/eval") == 0)) {
         tx_payload_t payload;
@@ -35,13 +35,13 @@ void handle_request(const http_request_t *req, char *resp_buf, size_t *resp_len,
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Type: application/json\r\n"
                 "Content-Length: %zu\r\n"
-                "Connection: keep-alive\r\n"
+                "Connection: close\r\n"
                 "\r\n"
                 "%s", strlen(json), json);
         } else {
-            *resp_len = snprintf(resp_buf, 4096, "HTTP/1.1 400 Bad Request\r\nConnection: keep-alive\r\n\r\n");
+            *resp_len = snprintf(resp_buf, 4096, "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
         }
     } else {
-        *resp_len = snprintf(resp_buf, 4096, "HTTP/1.1 404 Not Found\r\nConnection: keep-alive\r\n\r\n");
+        *resp_len = snprintf(resp_buf, 4096, "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
     }
 }
