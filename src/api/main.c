@@ -123,10 +123,19 @@ int main(int argc, char **argv) {
                             if (parse_http_request(c->buf + start, c->pos - start, &req)) {
                                 char resp[BUF_SIZE];
                                 size_t resp_len;
-                                handle_request(&req, resp, &resp_len, g_store);
-                                write(cfd, resp, resp_len);
                                 
                                 int consumed = (req.body - (c->buf + start)) + req.content_length;
+                                
+                                // Temporarily null-terminate the JSON body so strstr inside handle_request doesn't overrun
+                                char saved = c->buf[start + consumed];
+                                c->buf[start + consumed] = '\0';
+                                
+                                handle_request(&req, resp, &resp_len, g_store);
+                                
+                                c->buf[start + consumed] = saved;
+                                
+                                write(cfd, resp, resp_len);
+                                
                                 start += consumed;
                             } else {
                                 break;
